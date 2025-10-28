@@ -16,7 +16,7 @@
 
 1. Клонируйте репозиторий:
 
-git clone https://github.com/ваш-username/scam-messenger.git
+git clone https://github.com/G4merCybber/scam-messenger
 cd scam-messenger
 Установите зависимости:
 
