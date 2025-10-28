@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>скаM - Панель управления</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .create-post {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        
+        .post-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        
+        .post-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .post-image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        
+        .posts-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .post-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .post-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .post-author {
+            font-weight: bold;
+            color: var(--text-color);
+        }
+        
+        .post-time {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        }
+        
+        .post-content {
+            margin-bottom: 15px;
+        }
+        
+        .post-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .post-actions-bar {
+            display: flex;
+            gap: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        
+        .post-action {
+            background: none;
+            border: none;
+            color: var(--secondary-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .post-action:hover {
+            color: var(--primary-color);
+        }
+        
+        .post-action.liked {
+            color: #e74c3c;
+        }
+        
+        .comments-section {
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        
+        .comment {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .comment-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .comment-content {
+            flex: 1;
+        }
+        
+        .comment-author {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .comment-text {
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+        
+        .add-comment {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .comment-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .discover-button {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .discover-button .btn {
+            font-size: 1.2rem;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .discover-button .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="{{ 'dark-theme' if session.get('dark_theme') else '' }}">
+    
+    <div class="theme-toggle">
+        <label class="theme-switch">
+            <input type="checkbox" id="themeCheckbox" {{ 'checked' if session.get('dark_theme') else '' }}>
+            <span class="slider">
+                <div class="theme-icons">
+                    <span class="theme-icon sun">☀️</span>
+                    <span class="theme-icon moon">🌙</span>
+                </div>
+            </span>
+        </label>
+    </div>
+
+    <div class="container">
+        <header class="dashboard-header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="{{ url_for('static', filename=avatar) }}" alt="Аватар" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
+                <div>
+                    <h1 style="margin: 0; font-size: 1.5rem;">Добро пожаловать, {{ name }}!</h1>
+                    <a href="{{ url_for('profile') }}" class="btn btn-secondary" style="padding: 5px 15px; font-size: 0.9rem;">Мой профиль</a>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти</a>
+            </div>
+        </header>
+        
+        <!-- Создание поста -->
+        <div class="create-post">
+            <h3>Создать пост</h3>
+            <form id="createPostForm" enctype="multipart/form-data">
+                <textarea class="post-textarea" name="text" placeholder="Что у вас нового?" id="postText"></textarea>
+                <img id="postImagePreview" class="post-image-preview" src="" alt="Превью">
+                <div class="post-actions">
+                    <div>
+                        <input type="file" id="postImage" name="image" accept="image/*" style="display: none;" onchange="previewPostImage(event)">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('postImage').click()">📷 Фото</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Опубликовать</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="search-section">
+            <h2>Поиск пользователей</h2>
+            <form method="POST" action="{{ url_for('search_users') }}" class="search-form">
+                <input type="text" name="search_term" placeholder="Введите имя или юзернейм..." required>
+                <button type="submit" class="btn btn-primary">Найти</button>
+            </form>
+        </div>
+        
+        <div class="users-list">
+            <h2>Пользователи</h2>
+            {% if users %}
+                <div class="users-grid">
+                    {% for username, user_data in users.items() %}
+                    <div class="user-card">
+                        <img src="{{ url_for('static', filename=user_data.get('avatar', 'avatars/default.jpg')) }}" 
+                             alt="Аватар" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto;">
+                        <h3>{{ user_data.name }}</h3>
+                        <p>@{{ username }}</p>
+                        {% if user_data.bio %}
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">{{ user_data.bio[:50] }}{% if user_data.bio|length > 50 %}...{% endif %}</p>
+                        {% endif %}
+                        <a href="{{ url_for('chat', receiver=username) }}" class="btn btn-primary">Написать</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>Пользователи не найдены</p>
+            {% endif %}
+        </div>
+
+        <!-- Группы -->
+        <div class="users-list">
+            <h2>Мои группы</h2>
+            {% if groups %}
+                <div class="users-grid">
+                    {% for group_id, group in groups.items() %}
+                    <div class="user-card">
+                        <img src="{{ url_for('static', filename=group.avatar) }}" 
+                             alt="Аватар группы" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto;">
+                        <h3>{{ group.name }}</h3>
+                        <p>{{ group.members|length }} участников</p>
+                        {% if group.description %}
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">{{ group.description[:50] }}{% if group.description|length > 50 %}...{% endif %}</p>
+                        {% endif %}
+                        <a href="{{ url_for('group_chat', group_id=group_id) }}" class="btn btn-primary">Открыть чат</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>Вы не состоите в группах</p>
+            {% endif %}
+        </div>
+
+        <!-- Каналы -->
+        <div class="users-list">
+            <h2>Мои каналы</h2>
+            {% if channels %}
+                <div class="users-grid">
+                    {% for channel_id, channel in channels.items() %}
+                    <div class="user-card">
+                        <img src="{{ url_for('static', filename=channel.avatar) }}" 
+                             alt="Аватар канала" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto;">
+                        <h3>{{ channel.name }}</h3>
+                        <p>{{ channel.subscribers|length }} подписчиков</p>
+                        {% if channel.description %}
+                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">{{ channel.description[:50] }}{% if channel.description|length > 50 %}...{% endif %}</p>
+                        {% endif %}
+                        <a href="{{ url_for('channel_view', channel_id=channel_id) }}" class="btn btn-primary">Открыть канал</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>Вы не подписаны на каналы</p>
+            {% endif %}
+        </div>
+
+        <!-- Кнопка открытий -->
+        <div class="discover-button">
+            <a href="{{ url_for('discover') }}" class="btn">
+                🔍 Открыть новые группы и каналы
+            </a>
+        </div>
+        
+        <!-- Лента постов -->
+        <div class="posts-feed">
+            <h2>Лента постов</h2>
+            {% if posts %}
+                {% for post in posts %}
+                <div class="post-card" id="post-{{ post.id }}">
+                    <div class="post-header">
+                        <img src="{{ url_for('static', filename=post.author_avatar) }}" alt="Аватар" class="post-avatar">
+                        <div>
+                            <div class="post-author">{{ post.author_name }}</div>
+                            <div class="post-time">{{ post.created_at[:16].replace('T', ' ') }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="post-content">
+                        {% if post.text %}
+                        <p>{{ post.text }}</p>
+                        {% endif %}
+                        {% if post.image %}
+                        <img src="{{ url_for('static', filename=post.image) }}" alt="Изображение поста" class="post-image">
+                        {% endif %}
+                    </div>
+                    
+                    <div class="post-actions-bar">
+                        <button class="post-action {% if session.username in post.likes %}liked{% endif %}" 
+                                onclick="likePost({{ post.id }})">
+                            ❤️ {{ post.likes|length }}
+                        </button>
+                        <button class="post-action" onclick="toggleComments({{ post.id }})">
+                            💬 {{ post.comments|length }}
+                        </button>
+                    </div>
+                    
+                    <div class="comments-section" id="comments-{{ post.id }}" style="display: none;">
+                        {% for comment in post.comments %}
+                        <div class="comment">
+                            <img src="{{ url_for('static', filename=comment.author_avatar) }}" alt="Аватар" class="comment-avatar">
+                            <div class="comment-content">
+                                <div class="comment-author">{{ comment.author_name }}</div>
+                                <div class="comment-text">{{ comment.text }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="add-comment">
+                            <input type="text" class="comment-input" id="comment-{{ post.id }}" placeholder="Добавить комментарий...">
+                            <button class="btn btn-primary" onclick="addComment({{ post.id }})" style="padding: 8px 15px;">Отправить</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>Пока нет постов. Будьте первым!</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Валидация размера файлов для постов
+        function validateFileSize(input, maxSizeMB = 10) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const maxSize = maxSizeMB * 1024 * 1024;
+                
+                if (file.size > maxSize) {
+                    alert(`Файл слишком большой! Максимальный размер: ${maxSizeMB}MB`);
+                    input.value = '';
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        function previewPostImage(event) {
+            if (!validateFileSize(event.target, 10)) return;
+            
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('postImagePreview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        // Создание поста
+        document.getElementById('createPostForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('/create_post', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.reset();
+                    document.getElementById('postImagePreview').style.display = 'none';
+                    location.reload();
+                }
+            });
+        });
+        
+        // Лайки
+        function likePost(postId) {
+            const formData = new FormData();
+            formData.append('post_id', postId);
+            
+            fetch('/like_post', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        }
+        
+        // Комментарии
+        function toggleComments(postId) {
+            const commentsSection = document.getElementById('comments-' + postId);
+            commentsSection.style.display = commentsSection.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function addComment(postId) {
+            const commentInput = document.getElementById('comment-' + postId);
+            const text = commentInput.value.trim();
+            
+            if (!text) return;
+            
+            const formData = new FormData();
+            formData.append('post_id', postId);
+            formData.append('text', text);
+            
+            fetch('/add_comment', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        }
+        
+        // Переключение темы
+        document.getElementById('themeCheckbox').addEventListener('change', function() {
+            fetch('/toggle_theme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({dark_theme: this.checked})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        });
+
+        // Нажатие Enter для отправки комментария
+        document.querySelectorAll('.comment-input').forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const postId = this.id.split('-')[1];
+                    addComment(postId);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

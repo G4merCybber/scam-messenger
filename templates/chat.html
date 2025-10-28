@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>скаM - Чат с {{ receiver }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .chat-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 5px;
+        }
+        
+        .image-upload-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body class="{{ 'dark-theme' if session.get('dark_theme') else '' }}">
+    
+    <div class="theme-toggle">
+        <label class="theme-switch">
+            <input type="checkbox" id="themeCheckbox" {{ 'checked' if session.get('dark_theme') else '' }}>
+            <span class="slider">
+                <div class="theme-icons">
+                    <span class="theme-icon sun">☀️</span>
+                    <span class="theme-icon moon">🌙</span>
+                </div>
+            </span>
+        </label>
+    </div>
+
+    <div class="container chat-container">
+        <header class="chat-header">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Назад</a>
+            <h1>Чат с {{ receiver }}</h1>
+        </header>
+        
+        <div id="messages" class="messages">
+            {% for message in messages %}
+            <div class="message {% if message.sender == sender %}message-sent{% else %}message-received{% endif %}">
+                <div class="message-content">
+                    {% if message.text %}
+                    {{ message.text }}
+                    {% endif %}
+                    {% if message.image %}
+                    <img src="{{ url_for('static', filename=message.image) }}" alt="Изображение" class="chat-image">
+                    {% endif %}
+                </div>
+                <div class="message-time">
+                    {{ message.timestamp[:16].replace('T', ' ') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="message-input">
+            <form id="messageForm" enctype="multipart/form-data">
+                <input type="hidden" name="receiver" value="{{ receiver }}">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <input type="text" name="message" placeholder="Введите сообщение..." style="flex: 1;">
+                    <input type="file" id="chatImage" name="image" accept="image/*" style="display: none;">
+                    <button type="button" class="image-upload-btn" onclick="document.getElementById('chatImage').click()">📷</button>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Валидация размера файлов для чата
+        function validateFileSize(input, maxSizeMB = 5) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const maxSize = maxSizeMB * 1024 * 1024;
+                
+                if (file.size > maxSize) {
+                    alert(`Файл слишком большой! Максимальный размер: ${maxSizeMB}MB`);
+                    input.value = '';
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // Обработчик загрузки изображений в чате
+        document.getElementById('chatImage').addEventListener('change', function(event) {
+            if (!validateFileSize(event.target, 5)) return;
+            
+            // Автоматически отправляем форму после выбора файла
+            if (event.target.files[0]) {
+                document.getElementById('messageForm').dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function loadMessages() {
+            fetch('/get_messages/{{ receiver }}')
+                .then(response => response.json())
+                .then(data => {
+                    const messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';
+                    
+                    data.messages.forEach(message => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${message.sender === '{{ sender }}' ? 'message-sent' : 'message-received'}`;
+                        
+                        let content = '';
+                        if (message.text) {
+                            content += `<div>${message.text}</div>`;
+                        }
+                        if (message.image) {
+                            content += `<img src="/static/${message.image}" alt="Изображение" class="chat-image">`;
+                        }
+                        
+                        messageDiv.innerHTML = `
+                            <div class="message-content">${content}</div>
+                            <div class="message-time">${message.timestamp.slice(0, 16).replace('T', ' ')}</div>
+                        `;
+                        
+                        messagesContainer.appendChild(messageDiv);
+                    });
+                    
+                    scrollToBottom();
+                });
+        }
+        
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('/send_message', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.reset();
+                    loadMessages();
+                }
+            });
+        });
+        
+        document.getElementById('themeCheckbox').addEventListener('change', function() {
+            fetch('/toggle_theme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({dark_theme: this.checked})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        });
+        
+        setInterval(loadMessages, 3000);
+        scrollToBottom();
+    </script>
+</body>
+</html>

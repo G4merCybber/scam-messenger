@@ -1,0 +1,14 @@
+{
+    "group_1": {
+        "id": "group_1",
+        "name": "34",
+        "description": "34",
+        "avatar": "group_avatars/group_1.jpg",
+        "creator": "G4merCybber",
+        "members": [
+            "G4merCybber"
+        ],
+        "created_at": "2025-10-28T14:00:29.103353",
+        "is_public": true
+    }
+}

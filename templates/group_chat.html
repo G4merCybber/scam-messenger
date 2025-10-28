@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>скаM - {{ group.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .group-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .group-info {
+            flex: 1;
+        }
+        
+        .members-count {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .chat-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 5px;
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="{{ 'dark-theme' if session.get('dark_theme') else '' }}">
+    
+    <div class="theme-toggle">
+        <label class="theme-switch">
+            <input type="checkbox" id="themeCheckbox" {{ 'checked' if session.get('dark_theme') else '' }}>
+            <span class="slider">
+                <div class="theme-icons">
+                    <span class="theme-icon sun">☀️</span>
+                    <span class="theme-icon moon">🌙</span>
+                </div>
+            </span>
+        </label>
+    </div>
+
+    <div class="container chat-container">
+        <header class="chat-header">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Назад</a>
+            <div class="group-header">
+                <img src="{{ url_for('static', filename=group.avatar) }}" alt="Аватар группы" class="group-avatar">
+                <div class="group-info">
+                    <h1>{{ group.name }}</h1>
+                    <div class="members-count">{{ group.members|length }} участников</div>
+                </div>
+            </div>
+            {% if session.username == group.creator %}
+            <button class="btn btn-primary" onclick="showInviteModal()">Пригласить</button>
+            {% endif %}
+        </header>
+        
+        <div id="messages" class="messages">
+            {% for message in messages %}
+            <div class="message {% if message.sender == session.username %}message-sent{% else %}message-received{% endif %}">
+                <div class="message-content">
+                    <div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 5px;">
+                        {{ message.sender_name }}
+                    </div>
+                    {% if message.text %}
+                    {{ message.text }}
+                    {% endif %}
+                    {% if message.image %}
+                    <img src="{{ url_for('static', filename=message.image) }}" alt="Изображение" class="chat-image">
+                    {% endif %}
+                </div>
+                <div class="message-time">
+                    {{ message.timestamp[:16].replace('T', ' ') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="message-input">
+            <form id="messageForm" enctype="multipart/form-data">
+                <input type="hidden" name="group_id" value="{{ group.id }}">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <input type="text" name="message" placeholder="Сообщение для группы..." style="flex: 1;">
+                    <input type="file" id="chatImage" name="image" accept="image/*" style="display: none;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('chatImage').click()">📷</button>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно приглашения -->
+    <div id="inviteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeInviteModal()">&times;</span>
+            <h3>Пригласить в группу</h3>
+            <input type="text" id="inviteUsername" placeholder="Введите имя пользователя">
+            <button class="btn btn-primary" onclick="inviteToGroup()">Пригласить</button>
+        </div>
+    </div>
+
+    <script>
+        function showInviteModal() {
+            document.getElementById('inviteModal').style.display = 'flex';
+        }
+        
+        function closeInviteModal() {
+            document.getElementById('inviteModal').style.display = 'none';
+        }
+        
+        function inviteToGroup() {
+            const username = document.getElementById('inviteUsername').value.trim();
+            if (!username) {
+                alert('Введите имя пользователя');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('group_id', '{{ group.id }}');
+            formData.append('username', username);
+            
+            fetch('/invite_to_group', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    closeInviteModal();
+                    document.getElementById('inviteUsername').value = '';
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+        
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('inviteModal');
+            if (event.target === modal) {
+                closeInviteModal();
+            }
+        }
+
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function loadMessages() {
+            fetch('/get_group_messages/{{ group.id }}')
+                .then(response => response.json())
+                .then(data => {
+                    const messagesContainer = document.getElementById('messages');
+                    messagesContainer.innerHTML = '';
+                    
+                    data.messages.forEach(message => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${message.sender === '{{ session.username }}' ? 'message-sent' : 'message-received'}`;
+                        
+                        let content = `<div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 5px;">${message.sender_name}</div>`;
+                        if (message.text) {
+                            content += `<div>${message.text}</div>`;
+                        }
+                        if (message.image) {
+                            content += `<img src="/static/${message.image}" alt="Изображение" class="chat-image">`;
+                        }
+                        
+                        messageDiv.innerHTML = `
+                            <div class="message-content">${content}</div>
+                            <div class="message-time">${message.timestamp.slice(0, 16).replace('T', ' ')}</div>
+                        `;
+                        
+                        messagesContainer.appendChild(messageDiv);
+                    });
+                    
+                    scrollToBottom();
+                });
+        }
+        
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('/send_group_message', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.reset();
+                    loadMessages();
+                }
+            });
+        });
+        
+        document.getElementById('chatImage').addEventListener('change', function() {
+            if (this.files[0]) {
+                document.getElementById('messageForm').dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        document.getElementById('themeCheckbox').addEventListener('change', function() {
+            fetch('/toggle_theme', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({dark_theme: this.checked})
+            }).then(() => location.reload());
+        });
+        
+        setInterval(loadMessages, 3000);
+        scrollToBottom();
+    </script>
+</body>
+</html>

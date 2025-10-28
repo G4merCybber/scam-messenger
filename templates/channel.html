@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>скаM - {{ channel.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .channel-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .channel-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .channel-info {
+            flex: 1;
+        }
+        
+        .subscribers-count {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .channel-messages {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        
+        .channel-message {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .message-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .message-sender {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        }
+        
+        .message-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .post-form {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="{{ 'dark-theme' if session.get('dark_theme') else '' }}">
+    
+    <div class="theme-toggle">
+        <label class="theme-switch">
+            <input type="checkbox" id="themeCheckbox" {{ 'checked' if session.get('dark_theme') else '' }}>
+            <span class="slider">
+                <div class="theme-icons">
+                    <span class="theme-icon sun">☀️</span>
+                    <span class="theme-icon moon">🌙</span>
+                </div>
+            </span>
+        </label>
+    </div>
+
+    <div class="container">
+        <header class="chat-header">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Назад</a>
+            <div class="channel-header">
+                <img src="{{ url_for('static', filename=channel.avatar) }}" alt="Аватар канала" class="channel-avatar">
+                <div class="channel-info">
+                    <h1>{{ channel.name }}</h1>
+                    <div class="subscribers-count">{{ channel.subscribers|length }} подписчиков</div>
+                    <p>{{ channel.description }}</p>
+                </div>
+            </div>
+            {% if session.username == channel.creator %}
+            <button class="btn btn-primary" onclick="showInviteModal()">Пригласить</button>
+            {% endif %}
+        </header>
+
+        {% if session.username == channel.creator %}
+        <div class="post-form">
+            <h3>Опубликовать в канале</h3>
+            <form id="channelPostForm" enctype="multipart/form-data">
+                <input type="hidden" name="channel_id" value="{{ channel.id }}">
+                <div class="form-group">
+                    <textarea name="message" placeholder="Что нового в канале?" class="post-textarea"></textarea>
+                </div>
+                <div class="post-actions">
+                    <div>
+                        <input type="file" id="channelImage" name="image" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('channelImage').click()">📷 Фото</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Опубликовать</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <div class="channel-messages">
+            <h3>Сообщения канала</h3>
+            {% if channel.messages %}
+                {% for message in channel.messages %}
+                <div class="channel-message">
+                    <div class="message-header">
+                        <img src="{{ url_for('static', filename=message.sender_avatar) }}" alt="Аватар" class="message-avatar">
+                        <div>
+                            <div class="message-sender">{{ message.sender_name }}</div>
+                            <div class="message-time">{{ message.timestamp[:16].replace('T', ' ') }}</div>
+                        </div>
+                    </div>
+                    <div class="message-content">
+                        {% if message.text %}
+                        <p>{{ message.text }}</p>
+                        {% endif %}
+                        {% if message.image %}
+                        <img src="{{ url_for('static', filename=message.image) }}" alt="Изображение" class="message-image">
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>В канале пока нет сообщений</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Модальное окно приглашения -->
+    <div id="inviteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeInviteModal()">&times;</span>
+            <h3>Пригласить в канал</h3>
+            <input type="text" id="inviteUsername" placeholder="Введите имя пользователя">
+            <button class="btn btn-primary" onclick="inviteToChannel()">Пригласить</button>
+        </div>
+    </div>
+
+    <script>
+        function showInviteModal() {
+            document.getElementById('inviteModal').style.display = 'flex';
+        }
+        
+        function closeInviteModal() {
+            document.getElementById('inviteModal').style.display = 'none';
+        }
+        
+        function inviteToChannel() {
+            const username = document.getElementById('inviteUsername').value.trim();
+            if (!username) {
+                alert('Введите имя пользователя');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('channel_id', '{{ channel.id }}');
+            formData.append('username', username);
+            
+            fetch('/invite_to_channel', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    closeInviteModal();
+                    document.getElementById('inviteUsername').value = '';
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+        
+        window.onclick = function(event) {
+            const modal = document.getElementById('inviteModal');
+            if (event.target === modal) {
+                closeInviteModal();
+            }
+        }
+
+        {% if session.username == channel.creator %}
+        document.getElementById('channelPostForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('/send_channel_message', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.reset();
+                    location.reload();
+                }
+            });
+        });
+
+        document.getElementById('channelImage').addEventListener('change', function() {
+            if (this.files[0]) {
+                document.getElementById('channelPostForm').dispatchEvent(new Event('submit'));
+            }
+        });
+        {% endif %}
+
+        document.getElementById('themeCheckbox').addEventListener('change', function() {
+            fetch('/toggle_theme', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({dark_theme: this.checked})
+            }).then(() => location.reload());
+        });
+    </script>
+</body>
+</html>

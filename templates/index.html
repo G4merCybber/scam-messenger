@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>скаM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{{ 'dark-theme' if session.get('dark_theme') else '' }}">
+    
+    <div class="theme-toggle">
+        <label class="theme-switch">
+            <input type="checkbox" id="themeCheckbox" {{ 'checked' if session.get('dark_theme') else '' }}>
+            <span class="slider">
+                <div class="theme-icons">
+                    <span class="theme-icon sun">☀️</span>
+                    <span class="theme-icon moon">🌙</span>
+                </div>
+            </span>
+        </label>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>скаM</h1>
+            <p class="subtitle">Простой мессенджер от GREgroup</p>
+        </header>
+        
+        <div class="auth-buttons">
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Регистрация</a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">Вход</a>
+        </div>
+        
+        <div class="features">
+            <h2>Возможности:</h2>
+            <ul>
+                <li>📝 Простая регистрация</li>
+                <li>🔍 Поиск пользователей</li>
+                <li>💬 Личные сообщения</li>
+                <li>🌙 Темная тема</li>
+                <li>🔓 Открытый исходный код</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('themeCheckbox').addEventListener('change', function() {
+            fetch('/toggle_theme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({dark_theme: this.checked})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
